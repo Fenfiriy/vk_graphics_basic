@@ -15,7 +15,7 @@ class SimpleCompute : public ICompute
 {
 public:
   SimpleCompute(uint32_t a_length);
-  ~SimpleCompute()  { Cleanup(); };
+  ~SimpleCompute() { Cleanup(); };
 
   inline VkInstance   GetVkInstance() const override { return m_instance; }
   void InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t a_deviceId) override;
@@ -47,6 +47,7 @@ public:
   }
 
   VkDebugReportCallbackEXT m_debugReportCallback = nullptr;
+
 private:
 
   VkInstance       m_instance       = VK_NULL_HANDLE;
@@ -56,15 +57,15 @@ private:
   VkQueue          m_computeQueue   = VK_NULL_HANDLE;
   VkQueue          m_transferQueue  = VK_NULL_HANDLE;
 
-  vk_utils::QueueFID_T m_queueFamilyIDXs {UINT32_MAX, UINT32_MAX, UINT32_MAX};
+  vk_utils::QueueFID_T m_queueFamilyIDXs{ UINT32_MAX, UINT32_MAX, UINT32_MAX };
 
   VkCommandBuffer m_cmdBufferCompute;
   VkFence m_fence;
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
 
-  uint32_t m_length  = 16u;
-  
+  uint32_t m_length = 16u;
+
   VkPhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions      = {};
   std::vector<const char*> m_instanceExtensions    = {};
@@ -75,12 +76,14 @@ private:
 
   VkDescriptorSet       m_sumDS; 
   VkDescriptorSetLayout m_sumDSLayout = nullptr;
-  
+
   VkPipeline m_pipeline;
   VkPipelineLayout m_layout;
 
-  VkBuffer m_A, m_B, m_sum;
- 
+  VkBuffer m_A, m_B;
+
+  std::vector<float> values;
+
   void CreateInstance();
   void CreateDevice(uint32_t a_deviceId);
 
@@ -96,4 +99,4 @@ private:
 };
 
 
-#endif //SIMPLE_COMPUTE_H
+#endif// SIMPLE_COMPUTE_H
