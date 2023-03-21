@@ -3,10 +3,15 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "unpack_attributes.h"
+#include "common.h"
 
 
 layout(location = 0) in vec4 vPosNorm;
 layout(location = 1) in vec4 vTexCoordAndTang;
+
+layout(binding = 0, set = 0) uniform AppData {
+    UniformParams Params;
+};
 
 layout(push_constant) uniform params_t
 {
@@ -24,15 +29,46 @@ layout (location = 0 ) out VS_OUT
 
 } vOut;
 
+mat4 RotationMatrix(vec3 angle)
+{
+    mat4 rot_x = mat4(
+    1,              0,              0,              0,
+    0,              cos(angle.x),   -sin(angle.x),  0,
+    0,              sin(angle.x),   cos(angle.x),   0,    
+    0,              0,              0,              1
+    );
+    mat4 rot_y = mat4(
+    cos(angle.y),   0,              sin(angle.y),   0,
+    0,              1,              0,              0,
+    -sin(angle.y),  0,              cos(angle.y),   0,
+    0,              0,              0,              1
+    );
+    mat4 rot_z = mat4(
+    cos(angle.z),   -sin(angle.z),  0,              0,
+    sin(angle.z),   cos(angle.z),   0,              0,
+    0,              0,              1,              0,
+    0,              0,              0,              1
+    );
+    return rot_x * rot_y * rot_z;
+}
+
 out gl_PerVertex { vec4 gl_Position; };
 void main(void)
 {
     const vec4 wNorm = vec4(DecodeNormal(floatBitsToInt(vPosNorm.w)),         0.0f);
     const vec4 wTang = vec4(DecodeNormal(floatBitsToInt(vTexCoordAndTang.z)), 0.0f);
 
-    vOut.wPos     = (params.mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
-    vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
-    vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
+    const vec3 Rotation_speed = vec3(0.1f, 0.2f, 0.3f);
+
+    mat4 Rotational_matrix = RotationMatrix(Rotation_speed * Params.time);
+
+    mat4 mModel = params.mModel;
+
+    mModel *= Rotational_matrix;
+
+    vOut.wPos     = (mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
+    vOut.wNorm    = normalize(mat3(transpose(inverse(mModel))) * wNorm.xyz);
+    vOut.wTangent = normalize(mat3(transpose(inverse(mModel))) * wTang.xyz);
     vOut.texCoord = vTexCoordAndTang.xy;
 
     gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0);
