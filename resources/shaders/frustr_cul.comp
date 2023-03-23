@@ -1,0 +1,68 @@
+#version 430
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.h"
+
+layout( local_size_x = 64 ) in;
+
+layout(push_constant) uniform InstanceInfo
+{
+    mat4 projView;
+    vec4 bboxMin;
+    vec4 bboxMax;
+    uint instanceCount;
+};
+
+layout(std430, binding = 0) buffer InstancePositions
+{
+    mat4 positions[];
+};
+
+layout(std430, binding = 1) buffer VisibleIndicesData
+{
+    uint visibleIndicesCount;
+    uint visibleIndices[];
+};
+
+bool isOnFrustum(mat4 pos)
+{
+    vec4 bbox[8] = {
+        vec4(bboxMin.x, bboxMin.y, bboxMin.z, 1.f),
+        vec4(bboxMin.x, bboxMin.y, bboxMax.z, 1.f),
+        vec4(bboxMin.x, bboxMax.y, bboxMin.z, 1.f),
+        vec4(bboxMin.x, bboxMax.y, bboxMax.z, 1.f),
+        vec4(bboxMax.x, bboxMin.y, bboxMin.z, 1.f),
+        vec4(bboxMax.x, bboxMin.y, bboxMax.z, 1.f),
+        vec4(bboxMax.x, bboxMax.y, bboxMin.z, 1.f),
+        vec4(bboxMax.x, bboxMax.y, bboxMax.z, 1.f),
+    };
+
+    for (int i = 0; i < 8; i++)
+    {
+        bbox[i] = pos * bbox[i];
+        if (bbox[i].x >= -bbox[i].w && bbox[i].x <= bbox[i].w &&
+            bbox[i].y >= -bbox[i].w && bbox[i].y <= bbox[i].w &&
+            bbox[i].z >= 0.0        && bbox[i].z <= bbox[i].w)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+
+    if (idx < instanceCount)
+    {
+        mat4 vpPos = projView * positions[idx];
+        if (isOnFrustum(vpPos))
+        {
+            uint index = atomicAdd(visibleIndicesCount, 1);
+            visibleIndices[index] = idx;
+        }
+    }
+}

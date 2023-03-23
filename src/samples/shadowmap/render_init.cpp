@@ -16,7 +16,8 @@ void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32
   }
 
   SetupDeviceExtensions();
-  
+  m_enabledDeviceFeatures.setMultiDrawIndirect(VK_TRUE);
+
   etna::initialize(etna::InitParams
     {
       .applicationName = "ShadowmapSample",
@@ -41,6 +42,7 @@ void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32
 void SimpleShadowmapRender::SetupDeviceExtensions()
 {
   m_deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+  //m_deviceExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 }
 
 void SimpleShadowmapRender::RecreateSwapChain()

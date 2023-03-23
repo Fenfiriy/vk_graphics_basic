@@ -20,6 +20,16 @@ layout(binding = 0, set = 0) uniform AppData
 };
 
 layout (binding = 1) uniform sampler2D shadowMap;
+layout(binding = 2, set = 0) readonly buffer InstancePositions
+{
+    mat4 positions[];
+};
+
+layout(binding = 3, set = 0) readonly buffer VisibleIndicesData
+{
+    uint visibleIndicesCount;
+    uint visibleIndices[];
+};
 
 void main()
 {

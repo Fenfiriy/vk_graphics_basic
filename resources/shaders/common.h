@@ -51,4 +51,10 @@ struct UniformParams
   shader_bool  animateLightColor;
 };
 
+struct VisibleIndices
+{
+  shader_uint indicesCount;
+  shader_uint indices[10000];
+};
+
 #endif // VK_GRAPHICS_BASIC_COMMON_H

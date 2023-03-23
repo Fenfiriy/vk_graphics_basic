@@ -14,6 +14,7 @@
 
 #include <string>
 #include <iostream>
+#include <random>
 
 #include <etna/GlobalContext.hpp>
 #include <etna/Sampler.hpp>
@@ -50,6 +51,10 @@ private:
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
+  etna::Buffer positionsBuffer;
+  etna::Buffer visibleIndicesBuffer;
+  etna::Buffer indirectInfoBuffer;
+
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
   struct
@@ -69,11 +74,27 @@ private:
     float4x4 model;
   } pushConst2M;
 
+  struct
+  {
+    float4x4 projView;
+    float4 bboxMin;
+    float4 bboxMax;
+    uint32_t instanceCount;
+  } pushConstFrustum;
+
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
+
+  void *m_instancePositionsMem = nullptr;
+  void *m_visibleIndicesMem    = nullptr;
+  void *m_indirectInfoMem      = nullptr;
+
+  uint32_t m_maxInstances = 10000;
+
+  etna::ComputePipeline m_frustumCullingPipeline{};
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
@@ -99,6 +120,9 @@ private:
   std::shared_ptr<vk_utils::IQuad>               m_pFSQuad;
   VkDescriptorSet       m_quadDS; 
   VkDescriptorSetLayout m_quadDSLayout = nullptr;
+
+  VkDescriptorSet       m_frustumDS;
+  VkDescriptorSetLayout m_frustumDSLayout = nullptr;
 
   struct InputControlMouseEtc
   {
@@ -156,6 +180,8 @@ private:
   void InitPresentStuff();
   void ResetPresentStuff();
   void SetupGUIElements();
+
+  void FillPositionsBuffer();
 };
 
 
