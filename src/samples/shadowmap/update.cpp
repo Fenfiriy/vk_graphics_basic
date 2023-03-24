@@ -17,11 +17,12 @@ void SimpleShadowmapRender::UpdateView()
   //
   const float aspect = float(m_width) / float(m_height);
   auto mProjFix = OpenglToVulkanProjectionMatrixFix();
-  auto mProj = projectionMatrix(m_cam.fov, aspect, 0.1f, 1000.0f);
-  auto mLookAt = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
-  auto mWorldViewProj = mProjFix * mProj * mLookAt;
-  
-  m_worldViewProj = mWorldViewProj;
+  auto mProj                    = projectionMatrix(m_cam.fov, aspect, m_nearClipDist, m_farClipDist);
+  auto mLookAt                  = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
+  auto mWorldViewProj           = mProj * mLookAt;
+  m_worldViewProj               = mWorldViewProj;
+  pushConstDeferred.projInverse = LiteMath::inverse4x4(mProjFix * mProj);
+  pushConstDeferred.viewInverse = LiteMath::inverse4x4(mLookAt);
   
   ///// calc light matrix
   //
@@ -45,6 +46,7 @@ void SimpleShadowmapRender::UpdateUniformBuffer(float a_time)
   m_uniforms.lightPos    = m_light.cam.pos; //LiteMath::float3(sinf(a_time), 1.0f, cosf(a_time));
   m_uniforms.time        = a_time;
 
+  m_uniforms.baseColor = LiteMath::float3(0.9f, 0.92f, 1.0f);
   memcpy(m_uboMappedMem, &m_uniforms, sizeof(m_uniforms));
 }
 
