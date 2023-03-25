@@ -1,30 +1,166 @@
 #version 430
 
-layout( local_size_x = 32 ) in;
 
-layout( push_constant ) uniform params {
-  uint len;
-} PushConstant;
+layout(local_size_x = 32, local_size_y = 32) in;
 
-layout(std430, binding = 0) buffer a 
+const int radius = 11;
+const int window = radius * 2 + 1;
+
+
+layout (rgba32f, binding = 0) uniform readonly  image2D rawImage;
+layout (rgba32f, binding = 1) uniform writeonly image2D blurredImage;
+
+layout (binding = 2) uniform gaussCoeffsBlock
 {
-    float A[];
+    vec4 gaussCoeffs[window/4+1];
 };
 
-layout(std430, binding = 1) buffer b
-{
-    float B[];
-};
+shared vec3[32 + window - 1][32 + window - 1] localImage;
 
-layout(std430, binding = 2) buffer Sum
+
+float getGaussCoeff(uint i)
 {
-    float sum[];
-};
+    return gaussCoeffs[i/4][uint(mod(i, 4))];
+}
+
+void loadImageToShared(uvec2 id, uvec2 local_id, uvec2 wgSize, ivec2 imgSize)
+{
+    localImage[local_id.y + radius][local_id.x + radius] = imageLoad(rawImage, ivec2(id)).rgb;
+
+    if (local_id.x < radius)                                             //l
+    {
+        if (id.x < radius)
+            localImage[local_id.y+radius][local_id.x] = vec3(0.0f);
+        else
+            localImage[local_id.y+radius][local_id.x] = imageLoad(rawImage, ivec2(id.x-radius, id.y)).rgb;
+    }
+
+    if (local_id.y < radius)                                             //t
+    {
+        if (id.y < radius)
+            localImage[local_id.y][local_id.x + radius] = vec3(0.0f);
+        else
+            localImage[local_id.y][local_id.x + radius] = imageLoad(rawImage, ivec2(id.x, id.y - radius)).rgb;
+    }
+
+    if (local_id.x < radius && local_id.y < radius)                           //tl
+    {
+        if (id.x < radius || id.y < radius)
+            localImage[local_id.y][local_id.x] = vec3(0.0f);
+        else
+            localImage[local_id.y][local_id.x] = imageLoad(rawImage, ivec2(id.x - radius, id.y - radius)).rgb;
+    }
+
+    if (local_id.x > wgSize.x - radius - 1)                                  //r
+    {
+        if (id.x + radius > imgSize.x - 1)
+            localImage[local_id.y + radius][local_id.x + 2*radius] = vec3(0.0f);
+        else
+            localImage[local_id.y + radius][local_id.x + 2*radius] = imageLoad(rawImage, ivec2(id.x + radius, id.y)).rgb;
+    }
+
+    if (local_id.y > wgSize.y - radius - 1)                                  //b
+    {
+        if (id.y + radius > imgSize.y - 1)
+            localImage[local_id.y + 2*radius][local_id.x + radius] = vec3(0.0f);
+        else
+            localImage[local_id.y + 2*radius][local_id.x + radius] = imageLoad(rawImage, ivec2(id.x, id.y + radius)).rgb;
+    }
+
+    if (local_id.x > wgSize.x - radius - 1 && local_id.y > wgSize.y - radius - 1)     //br
+    {
+        if (id.x + radius > imgSize.x - 1 || id.y + radius > imgSize.y - 1)
+            localImage[local_id.y + 2*radius][local_id.x + 2*radius] = vec3(0.0f);
+        else
+            localImage[local_id.y + 2*radius][local_id.x + 2*radius] = imageLoad(rawImage, ivec2(id.x + radius, id.y + radius)).rgb;
+    }
+
+    if (local_id.x > wgSize.x - radius - 1 && local_id.y < radius)                //tr
+    {
+        if (id.x+radius > imgSize.x - 1 || id.y < radius)
+            localImage[local_id.y][local_id.x + 2*radius] = vec3(0.0f);
+        else
+            localImage[local_id.y][local_id.x + 2*radius] = imageLoad(rawImage, ivec2(id.x + radius, id.y - radius)).rgb;
+    }
+
+    if (local_id.x < radius && local_id.y > wgSize.y - radius - 1)                //bl
+    {
+        if (id.x < radius || id.y + radius > imgSize.y - 1)
+            localImage[local_id.y + 2*radius][local_id.x] = vec3(0.0f);
+        else
+            localImage[local_id.y + 2*radius][local_id.x] = imageLoad(rawImage, ivec2(id.x - radius, id.y + radius)).rgb;
+    }
+}
+
+
+void storeSharedToImage(ivec2 id, ivec2 local_id)
+{
+    imageStore(blurredImage, ivec2(id), vec4(localImage[local_id.y + radius][local_id.x + radius], 1.0));
+}
+
+void horizontalPass(uvec2 id, uvec2 local_id, ivec2 imgSize, uint y)
+{
+    float hGaussSum  = 0.0f;
+    vec3 hGaussColor = vec3(0.0f);
+
+    for (int x = 0; x < window; x++)
+    {
+        hGaussColor += getGaussCoeff(x) * localImage[y][local_id.x + x];
+        if (id.x + x >= radius && id.x - radius + x <= imgSize.x)
+            hGaussSum += getGaussCoeff(x);
+    }
+
+    barrier();
+
+    localImage[y][local_id.x + radius] = hGaussColor / hGaussSum;
+}
+
+
+void verticalPass(uvec2 id, uvec2 local_id, ivec2 imgSize, uint x)
+{
+    float vGaussSum = 0.0;
+    vec3 vGaussColor = vec3(0.0f);
+
+    for (int y = 0; y < window; y++)
+    {
+        vGaussColor += getGaussCoeff(y) * localImage[local_id.y + y][x];
+        if (id.y + y >= radius && id.y - radius + y <= imgSize.y)
+            vGaussSum += getGaussCoeff(y);
+    }
+
+    barrier();
+
+    localImage[local_id.y + radius][x] = vGaussColor / vGaussSum;
+}
+
 
 void main() 
+
 {
-    uint idx = gl_GlobalInvocationID.x;
-    if (idx < PushConstant.len) {
-        sum[idx] = A[idx] + B[idx];
+
+    ivec2 id      = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 local_id     = ivec2(gl_LocalInvocationID.xy);
+    ivec2 wgSize  = ivec2(gl_WorkGroupSize.xy);
+    ivec2 imgSize = imageSize(rawImage);
+
+    if (id.x < imgSize.x && id.y < imgSize.y)
+    {
+        loadImageToShared(id, local_id, wgSize, imgSize);
+        barrier();
+
+        horizontalPass(id, local_id, imgSize, local_id.y + radius);
+
+        if (local_id.y < radius && id.y >= radius)
+            horizontalPass(id, local_id, imgSize, local_id.y);
+        if (local_id.y > wgSize.y - radius - 1 && id.y + radius <= imgSize.y - 1)
+            horizontalPass(id, local_id, imgSize, local_id.y+2*radius);
+        barrier();
+
+        verticalPass(id, local_id, imgSize, local_id.x+radius);
+        barrier();
+
+        storeSharedToImage(id, local_id);
+
     }
+
 }
