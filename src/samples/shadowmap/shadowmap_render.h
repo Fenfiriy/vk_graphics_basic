@@ -72,6 +72,9 @@ private:
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
+  float spotlightInnerAngle = 7.f;
+  float spotlightOuterAngle = 14.f;
+
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
 

@@ -37,6 +37,10 @@ void main()
   vec4 lightColor2 = vec4(1.0f, 1.0f, 1.0f, 1.0f);
    
   vec3 lightDir   = normalize(Params.lightPos - surf.wPos);
+
+  float lightCos = dot(normalize(Params.spotlightDir), -lightDir);
+  float intensity = smoothstep(Params.spotlightOuter, Params.spotlightInner, lightCos);
+
   vec4 lightColor = max(dot(surf.wNorm, lightDir), 0.0f) * lightColor1;
-  out_fragColor   = (lightColor*shadow + vec4(0.1f)) * vec4(Params.baseColor, 1.0f);
+  out_fragColor   = intensity * (lightColor*shadow + vec4(0.1f)) * vec4(Params.baseColor, 1.0f);
 }
