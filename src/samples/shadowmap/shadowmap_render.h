@@ -63,10 +63,19 @@ private:
   std::vector<VkFence> m_frameFences;
   std::vector<VkCommandBuffer> m_cmdBuffersDrawMain;
 
+  std::vector<float3> colors{
+    { 0.243, 0.459, 0.51 },
+    { 0.569, 0.631, 0.839 },
+    { 0.639, 0.345, 0.608 },
+    { 0.541, 0.541, 0.541 },
+    { 0.671, 0.169, 0.169 }
+  };
+
   struct
   {
     float4x4 projView;
     float4x4 model;
+    float3 color;
   } pushConst2M;
 
   float4x4 m_worldViewProj;
