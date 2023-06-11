@@ -21,10 +21,11 @@ struct InstanceInfo
 
 struct SceneManager
 {
-  SceneManager(VkDevice a_device, VkPhysicalDevice a_physDevice, uint32_t a_transferQId, uint32_t a_graphicsQId,
-    bool debug = false);
+  SceneManager(VkDevice a_device, VkPhysicalDevice a_physDevice, uint32_t a_transferQId, uint32_t a_graphicsQId, bool debug = false);
   ~SceneManager() { DestroyScene(); }
 
+  void GenerateQuadMesh(int resolution);
+  bool LoadSceneQuadMesh(const std::string &scenePath, int resolution);
   bool LoadSceneXML(const std::string &scenePath, bool transpose = true);
   void LoadSingleTriangle();
 
