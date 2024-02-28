@@ -1,0 +1,123 @@
+#version 430
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout (rgba32f, binding = 0) uniform readonly  image2D inImg;
+layout (rgba32f, binding = 1) uniform writeonly image2D outImg;
+
+const uint n = 11;
+const uint offset = 5;
+
+shared vec3[32 + n - 1][32 + n - 1] img_part;
+
+const float coeff[n] = {
+    0.00266126, 0.0134476, 0.0474085, 0.116606, 0.200097, 0.239559, 0.200097, 0.116606, 0.0474085, 0.0134476, 0.00266126
+};
+
+void getImgPart(uvec2 g_id, uvec2 l_id, uvec2 wgSize, ivec2 imgSize)
+{
+    img_part[l_id.y + offset][l_id.x + offset] = imageLoad(inImg, ivec2(g_id)).rgb;
+
+
+    if (l_id.x < offset && g_id.x < offset) 
+    {
+        img_part[l_id.y + offset][l_id.x] = vec3(0.f);
+    }
+    if (l_id.y < offset && g_id.y < offset)
+    {
+        img_part[l_id.y][l_id.x + offset] = vec3(0.f);
+    }
+    if (l_id.x < offset && l_id.y < offset && (g_id.x < offset || g_id.y < offset))                           
+    {
+        img_part[l_id.y][l_id.x] = vec3(0.f);
+    }
+    //_________________
+    if (l_id.x > wgSize.x - offset - 1 && g_id.x + offset > imgSize.x - 1)
+    {
+        img_part[l_id.y + offset][l_id.x + 2 * offset] = vec3(0.0f);
+    }
+    if (l_id.y > wgSize.y - offset - 1 && g_id.y + offset > imgSize.y - 1)                                  
+    {
+        img_part[l_id.y + 2 * offset][l_id.x + offset] = vec3(0.0f);
+    }
+    if (l_id.x > wgSize.x - offset - 1 && l_id.y > wgSize.y - offset - 1 && 
+    (g_id.x + offset > imgSize.x - 1 || g_id.y + offset > imgSize.y - 1))
+    {
+        img_part[l_id.y + 2 * offset][l_id.x + 2 * offset] = vec3(0.0f);
+    }
+    //_________________
+    if (l_id.x > wgSize.x - offset - 1 && l_id.y < offset && (g_id.x + offset > imgSize.x - 1 || g_id.y < offset))  
+    {
+        img_part[l_id.y][l_id.x + 2 * offset] = vec3(0.0f);
+    }
+    if (l_id.x < offset && l_id.y > wgSize.y - offset - 1 && (g_id.x < offset || g_id.y + offset > imgSize.y - 1))
+    {
+        img_part[l_id.y + 2 * offset][l_id.x] = vec3(0.0f);
+    }
+    //////////////////////////////////////////////////////////////////////
+
+    if (l_id.x < offset && g_id.x >= offset) 
+    {
+        img_part[l_id.y + offset][l_id.x] = imageLoad(inImg, ivec2(g_id.x - offset, g_id.y)).rgb;
+    }
+    if (l_id.y < offset && g_id.y >= offset)
+    {
+        img_part[l_id.y][l_id.x + offset] = imageLoad(inImg, ivec2(g_id.x, g_id.y - offset)).rgb;
+    }
+    if (l_id.x < offset && l_id.y < offset && !(g_id.x < offset || g_id.y < offset))                           
+    {
+        img_part[l_id.y][l_id.x] = imageLoad(inImg, ivec2(g_id.x - offset, g_id.y - offset)).rgb;
+    }
+    //_________________
+    if (l_id.x > wgSize.x - offset - 1 && g_id.x + offset <= imgSize.x - 1)
+    {
+        img_part[l_id.y + offset][l_id.x + 2 * offset] = imageLoad(inImg, ivec2(g_id.x + offset, g_id.y)).rgb;
+    }
+    if (l_id.y > wgSize.y - offset - 1 && g_id.y + offset <= imgSize.y - 1)                                  
+    {
+        img_part[l_id.y + 2 * offset][l_id.x + offset] = imageLoad(inImg, ivec2(g_id.x, g_id.y + offset)).rgb;
+    }
+    if (l_id.x > wgSize.x - offset - 1 && l_id.y > wgSize.y - offset - 1 && 
+    !(g_id.x + offset > imgSize.x - 1 || g_id.y + offset > imgSize.y - 1))
+    {
+        img_part[l_id.y + 2 * offset][l_id.x + 2 * offset] = imageLoad(inImg, ivec2(g_id.x + offset, g_id.y + offset)).rgb;
+    }
+    //_________________
+    if (l_id.x > wgSize.x - offset - 1 && l_id.y < offset && !(g_id.x + offset > imgSize.x - 1 || g_id.y < offset))  
+    {
+        img_part[l_id.y][l_id.x + 2 * offset] = imageLoad(inImg, ivec2(g_id.x + offset, g_id.y - offset)).rgb;
+    }
+    if (l_id.x < offset && l_id.y > wgSize.y - offset -1 && !(g_id.x < offset || g_id.y + offset > imgSize.y - 1))
+    {
+        img_part[l_id.y + 2 * offset][l_id.x] = imageLoad(inImg, ivec2(g_id.x - offset, g_id.y + offset)).rgb;
+    }
+}
+
+void main() 
+{
+    uvec2 g_id = gl_GlobalInvocationID.xy;
+    uvec2 l_id = gl_LocalInvocationID.xy;
+    uvec2 wgSize  = gl_WorkGroupSize.xy;
+    ivec2 imgSize = imageSize(inImg);
+
+    if (g_id.x < imgSize.x && g_id.y < imgSize.y)
+    {
+        getImgPart(g_id, l_id, wgSize, imgSize);
+        barrier();
+        vec3 sum = vec3(0.0);
+        for (int i = 0; i < n; ++i)
+        {
+            sum += coeff[i] * img_part[l_id.y + i][l_id.x + offset];
+        }
+        barrier();
+        img_part[l_id.y + offset][l_id.x + offset] = sum;
+        sum = vec3(0.0);
+        for (int i = 0; i < n; ++i)
+        {
+            sum += coeff[i] * img_part[l_id.y + offset][l_id.x + i];
+        }
+        barrier();
+        img_part[l_id.y + offset][l_id.x + offset] = sum;
+        imageStore(outImg, ivec2(g_id), vec4(sum, 1.0));
+    }
+}
