@@ -25,6 +25,9 @@ struct SceneManager
     bool debug = false);
   ~SceneManager() { DestroyScene(); }
 
+  void GenerateQuadMesh(int resolution);
+  bool LoadSceneQuadMesh(const std::string &scenePath, int resolution);
+
   bool LoadSceneXML(const std::string &scenePath, bool transpose = true);
   void LoadSingleTriangle();
 
