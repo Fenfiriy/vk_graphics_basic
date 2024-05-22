@@ -47,6 +47,7 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image hdrImage;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
@@ -76,7 +77,10 @@ private:
   void* m_uboMappedMem = nullptr;
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
-  etna::GraphicsPipeline m_shadowPipeline {};
+  etna::GraphicsPipeline m_shadowPipeline{};
+  etna::GraphicsPipeline m_toneMappingPipeline{};
+
+  std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   
   VkSurfaceKHR m_surface = VK_NULL_HANDLE;
   VulkanSwapChain m_swapchain;
